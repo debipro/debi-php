@@ -1,0 +1,62 @@
+{
+    "name": "debi/debi-php",
+    "description": "PHP library for the Debi API.",
+    "type": "library",
+    "license": "MIT",
+    "homepage": "https://debi.pro",
+    "keywords": ["debi", "api", "payments", "sdk", "payment-orchestrator"],
+    "support": {
+        "issues": "https://github.com/debi/debi-php/issues",
+        "source": "https://github.com/debi/debi-php"
+    },
+    "require": {
+        "php": ">=8.1",
+        "ext-json": "*",
+        "ext-mbstring": "*",
+        "psr/http-client": "^1.0",
+        "psr/http-client-implementation": "*",
+        "psr/http-factory": "^1.0",
+        "psr/http-factory-implementation": "*",
+        "psr/http-message": "^1.1 || ^2.0",
+        "php-http/discovery": "^1.19"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^10.5",
+        "phpstan/phpstan": "^1.12",
+        "guzzlehttp/guzzle": "^7.8",
+        "guzzlehttp/psr7": "^2.7",
+        "nyholm/psr7": "^1.8",
+        "php-http/mock-client": "^1.6"
+    },
+    "autoload": {
+        "psr-4": {
+            "Debi\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Debi\\Tests\\": "tests/"
+        }
+    },
+    "config": {
+        "sort-packages": true,
+        "allow-plugins": {
+            "php-http/discovery": true
+        }
+    },
+    "extra": {
+        "branch-alias": {
+            "dev-main": "1.x-dev"
+        }
+    },
+    "scripts": {
+        "test": "phpunit",
+        "analyse": "phpstan analyse",
+        "ci": [
+            "@analyse",
+            "@test"
+        ]
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}
