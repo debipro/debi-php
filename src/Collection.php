@@ -5,22 +5,54 @@ declare(strict_types=1);
 namespace Debi;
 
 /**
- * A paginated list response (`{ "object": "list", "data": [...] }`).
+ * A paginated list response.
  *
- * Iterable directly over the current page, or with {@see autoPagingIterator()}
- * across all pages using the API's cursor pagination (`starting_after`).
+ * The Debi API returns lists in a JSON envelope with three top-level keys:
+ *
+ *     {
+ *       "data":  [ ...items... ],
+ *       "links": { "first": "...", "last": "...", "prev": null, "next": "...|null" },
+ *       "meta":  { "path": "...", "per_page": N, "next_cursor": "...|null", ... }
+ *     }
+ *
+ * Iterate directly over the current page, or with {@see autoPagingIterator()}
+ * across all pages using `meta.next_cursor`.
  *
  * @implements \IteratorAggregate<int, mixed>
  */
-class Collection extends ApiResource implements \IteratorAggregate
+final class Collection extends DebiObject implements \IteratorAggregate
 {
-    public const OBJECT_NAME = 'list';
-
     private ?ApiRequestor $requestor = null;
     private string $requestPath = '';
     /** @var array<int|string,mixed> */
     private array $requestParams = [];
     private ?RequestOptions $requestOpts = null;
+
+    /**
+     * Hydrate a Collection from the raw decoded response body. Items inside
+     * `data` are converted to their concrete resource classes via the `object`
+     * discriminator.
+     *
+     * @param array<string,mixed> $body
+     */
+    public static function fromList(array $body): self
+    {
+        $rawItems = $body['data'] ?? [];
+        $items = [];
+        if (is_array($rawItems)) {
+            foreach ($rawItems as $item) {
+                $items[] = Util\Util::convertToObject($item);
+            }
+        }
+
+        $instance = new self();
+        $instance->values = [
+            'data' => $items,
+            'links' => $body['links'] ?? null,
+            'meta' => $body['meta'] ?? null,
+        ];
+        return $instance;
+    }
 
     /**
      * Bind the parameters that produced this list so {@see autoPagingIterator()}
@@ -52,6 +84,34 @@ class Collection extends ApiResource implements \IteratorAggregate
         return is_array($data) ? array_values($data) : [];
     }
 
+    /**
+     * Whether there is at least one more page after the current one.
+     */
+    public function hasMore(): bool
+    {
+        $links = $this->values['links'] ?? null;
+        if (!is_array($links)) {
+            return false;
+        }
+        $next = $links['next'] ?? null;
+        return is_string($next) && $next !== '';
+    }
+
+    /**
+     * Cursor token to fetch the next page, when one exists.
+     */
+    public function nextCursor(): ?string
+    {
+        if (!$this->hasMore()) {
+            return null;
+        }
+        $meta = $this->values['meta'] ?? null;
+        if (is_array($meta) && isset($meta['next_cursor']) && is_string($meta['next_cursor'])) {
+            return $meta['next_cursor'];
+        }
+        return null;
+    }
+
     public function getIterator(): \Generator
     {
         foreach ($this->data() as $item) {
@@ -70,47 +130,36 @@ class Collection extends ApiResource implements \IteratorAggregate
     {
         $page = $this;
         while (true) {
-            $items = $page->data();
-            if ($items === []) {
-                return;
-            }
-            $lastId = null;
-            foreach ($items as $item) {
+            foreach ($page->data() as $item) {
                 yield $item;
-                if ($item instanceof DebiObject) {
-                    $candidate = $item['id'] ?? null;
-                    if (is_string($candidate)) {
-                        $lastId = $candidate;
-                    }
-                } elseif (is_array($item) && isset($item['id']) && is_string($item['id'])) {
-                    $lastId = $item['id'];
-                }
             }
-            if ($lastId === null || $page->requestor === null) {
+            $cursor = $page->nextCursor();
+            if ($cursor === null || $page->requestor === null) {
                 return;
             }
-            $page = $page->fetchNextPage($lastId);
-            if ($page === null) {
+            $next = $page->fetchNextPage($cursor);
+            if ($next === null) {
                 return;
             }
+            $page = $next;
         }
     }
 
-    private function fetchNextPage(string $lastId): ?self
+    private function fetchNextPage(string $cursor): ?self
     {
         if ($this->requestor === null) {
             return null;
         }
         $params = $this->requestParams;
-        $params['starting_after'] = $lastId;
+        $params['starting_after'] = $cursor;
         unset($params['ending_before']);
 
         [$body] = $this->requestor->request('GET', $this->requestPath, $params, $this->requestOpts);
-
-        $next = Util\Util::convertToObject($body);
-        if (!$next instanceof self) {
+        if (!isset($body['data']) || !is_array($body['data'])) {
             return null;
         }
+
+        $next = self::fromList($body);
         $next->setRequestParams($this->requestor, $this->requestPath, $params, $this->requestOpts);
         return $next;
     }

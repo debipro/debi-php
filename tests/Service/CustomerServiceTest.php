@@ -15,6 +15,10 @@ use PHPUnit\Framework\TestCase;
 
 final class CustomerServiceTest extends TestCase
 {
+    // Real ID prefix shape observed from the live API: `CS` + 10 alphanumerics.
+    private const CUSTOMER_ID_1 = 'CSjRZ5JqjAw0';
+    private const CUSTOMER_ID_2 = 'CSkywYrxQYDR';
+
     private FakeHttpClient $http;
     private CustomerService $service;
 
@@ -35,7 +39,8 @@ final class CustomerServiceTest extends TestCase
     {
         $this->http->queue(new Response(
             201,
-            '{"id":"cus_1","object":"customer","livemode":false,"email":"a@b.com","name":"Ana"}',
+            '{"data":{"id":"' . self::CUSTOMER_ID_1 . '","object":"customer","livemode":false,'
+            . '"email":"a@b.com","name":"Ana"}}',
             [],
         ));
 
@@ -45,7 +50,7 @@ final class CustomerServiceTest extends TestCase
         ], ['idempotency_key' => 'order-1']);
 
         $this->assertInstanceOf(Customer::class, $customer);
-        $this->assertSame('cus_1', $customer->id);
+        $this->assertSame(self::CUSTOMER_ID_1, $customer->id);
         $this->assertSame('a@b.com', $customer->email);
 
         $call = $this->http->lastCall();
@@ -58,21 +63,32 @@ final class CustomerServiceTest extends TestCase
     #[Test]
     public function it_retrieves_a_customer(): void
     {
-        $this->http->queue(new Response(200, '{"id":"cus_1","object":"customer"}', []));
+        $this->http->queue(new Response(
+            200,
+            '{"data":{"id":"' . self::CUSTOMER_ID_1 . '","object":"customer"}}',
+            [],
+        ));
 
-        $customer = $this->service->retrieve('cus_1');
+        $customer = $this->service->retrieve(self::CUSTOMER_ID_1);
 
         $this->assertInstanceOf(Customer::class, $customer);
-        $this->assertSame('cus_1', $customer->id);
-        $this->assertSame('https://api.example.test/v1/customers/cus_1', $this->http->lastCall()['url']);
+        $this->assertSame(self::CUSTOMER_ID_1, $customer->id);
+        $this->assertSame(
+            'https://api.example.test/v1/customers/' . self::CUSTOMER_ID_1,
+            $this->http->lastCall()['url'],
+        );
     }
 
     #[Test]
     public function it_updates_a_customer(): void
     {
-        $this->http->queue(new Response(200, '{"id":"cus_1","object":"customer","name":"new"}', []));
+        $this->http->queue(new Response(
+            200,
+            '{"data":{"id":"' . self::CUSTOMER_ID_1 . '","object":"customer","name":"new"}}',
+            [],
+        ));
 
-        $this->service->update('cus_1', ['name' => 'new']);
+        $this->service->update(self::CUSTOMER_ID_1, ['name' => 'new']);
 
         $call = $this->http->lastCall();
         $this->assertSame('PUT', $call['method']);
@@ -84,7 +100,10 @@ final class CustomerServiceTest extends TestCase
     {
         $this->http->queue(new Response(
             200,
-            '{"object":"list","data":[{"id":"cus_1","object":"customer"},{"id":"cus_2","object":"customer"}]}',
+            '{"data":['
+            . '{"id":"' . self::CUSTOMER_ID_1 . '","object":"customer"},'
+            . '{"id":"' . self::CUSTOMER_ID_2 . '","object":"customer"}'
+            . '],"links":{"next":null},"meta":{"next_cursor":null}}',
             [],
         ));
 
@@ -101,7 +120,7 @@ final class CustomerServiceTest extends TestCase
     #[Test]
     public function it_searches_customers(): void
     {
-        $this->http->queue(new Response(200, '{"object":"list","data":[]}', []));
+        $this->http->queue(new Response(200, '{"data":[],"links":{"next":null},"meta":{}}', []));
 
         $this->service->search(['query' => 'email:"a@b.com"']);
 
@@ -112,19 +131,27 @@ final class CustomerServiceTest extends TestCase
     public function it_archives_and_restores_via_action_endpoints(): void
     {
         $this->http
-            ->queue(new Response(200, '{"id":"cus_1","object":"customer","archived":true}', []))
-            ->queue(new Response(200, '{"id":"cus_1","object":"customer","archived":false}', []));
+            ->queue(new Response(
+                200,
+                '{"data":{"id":"' . self::CUSTOMER_ID_1 . '","object":"customer","archived":true}}',
+                [],
+            ))
+            ->queue(new Response(
+                200,
+                '{"data":{"id":"' . self::CUSTOMER_ID_1 . '","object":"customer","archived":false}}',
+                [],
+            ));
 
-        $this->service->archive('cus_1');
-        $this->service->restore('cus_1');
+        $this->service->archive(self::CUSTOMER_ID_1);
+        $this->service->restore(self::CUSTOMER_ID_1);
 
         $this->assertSame(
-            'https://api.example.test/v1/customers/cus_1/actions/archive',
+            'https://api.example.test/v1/customers/' . self::CUSTOMER_ID_1 . '/actions/archive',
             $this->http->calls[0]['url'],
         );
         $this->assertSame('POST', $this->http->calls[0]['method']);
         $this->assertSame(
-            'https://api.example.test/v1/customers/cus_1/actions/restore',
+            'https://api.example.test/v1/customers/' . self::CUSTOMER_ID_1 . '/actions/restore',
             $this->http->calls[1]['url'],
         );
     }
@@ -132,12 +159,12 @@ final class CustomerServiceTest extends TestCase
     #[Test]
     public function it_lists_payment_methods_for_a_customer(): void
     {
-        $this->http->queue(new Response(200, '{"object":"list","data":[]}', []));
+        $this->http->queue(new Response(200, '{"data":[],"links":{"next":null},"meta":{}}', []));
 
-        $this->service->paymentMethods('cus_1');
+        $this->service->paymentMethods(self::CUSTOMER_ID_1);
 
         $this->assertSame(
-            'https://api.example.test/v1/customers/cus_1/payment_methods',
+            'https://api.example.test/v1/customers/' . self::CUSTOMER_ID_1 . '/payment_methods',
             $this->http->lastCall()['url'],
         );
     }

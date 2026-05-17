@@ -108,25 +108,23 @@ final class ApiRequestorTest extends TestCase
     }
 
     #[Test]
-    public function it_generates_a_unique_x_request_id_per_call(): void
+    public function it_does_not_send_a_client_generated_request_id(): void
     {
-        $this->http
-            ->queue(new Response(200, '{"object":"list","data":[]}', []))
-            ->queue(new Response(200, '{"object":"list","data":[]}', []));
+        // Request ids are a server-side concern (Stripe-style). The SDK must
+        // not synthesize one, both because the server has no use for it today
+        // and because pretending to have one would obscure real server-set
+        // values once the API starts returning them.
+        $this->http->queue(new Response(200, '{"object":"list","data":[]}', []));
 
         $this->requestor->request('GET', '/v1/customers');
-        $this->requestor->request('GET', '/v1/customers');
 
-        $id1 = $this->http->calls[0]['headers']['X-Request-Id'];
-        $id2 = $this->http->calls[1]['headers']['X-Request-Id'];
-
-        $this->assertStringStartsWith('req_', $id1);
-        $this->assertStringStartsWith('req_', $id2);
-        $this->assertNotSame($id1, $id2, 'request ids must be unique per call');
+        $sent = $this->http->lastCall()['headers'];
+        $this->assertArrayNotHasKey('X-Request-Id', $sent);
+        $this->assertArrayNotHasKey('Request-Id', $sent);
     }
 
     #[Test]
-    public function user_can_override_x_request_id_via_headers(): void
+    public function it_applies_custom_headers_from_request_options(): void
     {
         $this->http->queue(new Response(200, '{"object":"list","data":[]}', []));
 
@@ -134,10 +132,10 @@ final class ApiRequestorTest extends TestCase
             'GET',
             '/v1/customers',
             [],
-            new RequestOptions(headers: ['X-Request-Id' => 'req_my_trace']),
+            new RequestOptions(headers: ['X-Trace-Span' => 'abc123']),
         );
 
-        $this->assertSame('req_my_trace', $this->http->lastCall()['headers']['X-Request-Id']);
+        $this->assertSame('abc123', $this->http->lastCall()['headers']['X-Trace-Span']);
     }
 
     /**
@@ -203,5 +201,108 @@ final class ApiRequestorTest extends TestCase
         } catch (RateLimitException $e) {
             $this->assertSame(7, $e->retryAfter());
         }
+    }
+
+    #[Test]
+    public function it_surfaces_a_3xx_redirect_as_a_clear_api_error(): void
+    {
+        $this->http->queue(new Response(
+            301,
+            "<html><body>Moved Permanently</body></html>",
+            ['Location' => 'https://api.debi.pro/v1/customers'],
+        ));
+
+        try {
+            $this->requestor->request('POST', '/v1/customers', ['email' => 'a@b.com']);
+            self::fail('Expected ApiErrorException');
+        } catch (ApiErrorException $e) {
+            $this->assertSame(301, $e->httpStatus);
+            $this->assertStringContainsString('redirect to https://api.debi.pro/v1/customers', $e->getMessage());
+            $this->assertStringContainsString('apiBase', $e->getMessage());
+        }
+    }
+
+    #[Test]
+    public function it_surfaces_a_non_json_5xx_as_a_typed_server_error(): void
+    {
+        $this->http->queue(new Response(
+            502,
+            "<html>\n<head><title>502 Bad Gateway</title></head>\n<body><h1>Bad Gateway</h1></body>\n</html>",
+            ['Content-Type' => 'text/html'],
+        ));
+
+        try {
+            $this->requestor->request('GET', '/v1/customers');
+            self::fail('Expected ServerException');
+        } catch (ServerException $e) {
+            $this->assertSame(502, $e->httpStatus);
+            $this->assertStringContainsString('non-JSON', $e->getMessage());
+            $this->assertStringContainsString('502 Bad Gateway', $e->getMessage());
+        }
+    }
+
+    #[Test]
+    public function it_truncates_long_non_json_bodies_in_the_preview(): void
+    {
+        $huge = str_repeat('A', 1000);
+        $this->http->queue(new Response(502, $huge, []));
+
+        try {
+            $this->requestor->request('GET', '/v1/customers');
+            self::fail('Expected ServerException');
+        } catch (ServerException $e) {
+            $this->assertStringContainsString('…', $e->getMessage());
+            $this->assertLessThan(400, strlen($e->getMessage()));
+        }
+    }
+
+    #[Test]
+    public function it_does_not_treat_a_2xx_json_response_as_an_error(): void
+    {
+        $this->http->queue(new Response(200, '{"data":{"id":"CSjRZ5JqjAw0","object":"customer"}}', []));
+
+        [$body, , $status] = $this->requestor->request('GET', '/v1/customers/CSjRZ5JqjAw0');
+
+        $this->assertSame(200, $status);
+        $this->assertSame('CSjRZ5JqjAw0', $body['data']['id']);
+    }
+
+    #[Test]
+    public function it_throws_on_2xx_with_a_non_json_body(): void
+    {
+        // A 2xx with a non-empty body that does not parse as JSON is almost
+        // always a misconfiguration (proxy stripping the body, middleware
+        // injecting HTML, an upstream redirect page leaking through with a
+        // 200). The SDK surfaces this as a typed error rather than swallowing
+        // it: silently returning an empty array would mask the bug and show
+        // up as missing fields somewhere downstream.
+        $this->http->queue(new Response(
+            200,
+            '<html>not json</html>',
+            ['Content-Type' => 'text/html'],
+        ));
+
+        try {
+            $this->requestor->request('GET', '/v1/customers');
+            self::fail('Expected ApiErrorException for 2xx non-JSON body');
+        } catch (ApiErrorException $e) {
+            $this->assertSame(200, $e->httpStatus);
+            $this->assertStringContainsString('non-JSON', $e->getMessage());
+            $this->assertStringContainsString('not json', $e->getMessage());
+        }
+    }
+
+    #[Test]
+    public function it_tolerates_2xx_with_an_empty_body(): void
+    {
+        // 202/204 with no payload is the conventional success shape for
+        // DELETE and several action endpoints. Treat the empty body as an
+        // empty result rather than a malformed response.
+        $this->http->queue(new Response(204, '', []));
+
+        [$body, , $status] = $this->requestor->request('DELETE', '/v1/customers/CSjRZ5JqjAw0');
+
+        $this->assertSame(204, $status);
+        $this->assertSame([], $body);
     }
 }

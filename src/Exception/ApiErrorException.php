@@ -50,10 +50,11 @@ class ApiErrorException extends \RuntimeException implements ExceptionInterface
             : self::defaultMessageFor($status);
 
         $code = is_string($body['code'] ?? null) ? $body['code'] : null;
-        // The Debi API does not echo X-Request-Id back on responses today; it
-        // reads the client-supplied value for server-side log correlation.
-        // We still surface whatever the server sends in case that changes
-        // (nginx-style `req_…` is a reasonable future-proofing target).
+        // The SDK does not generate or send a request id of its own (Stripe-
+        // style: that is a server-side concern). The Debi API does not echo
+        // one back today either, but if/when it starts returning one — under
+        // any of the common spellings — we surface it so users can quote it
+        // in support tickets without having to read response headers manually.
         $requestId = $headersCi['x-request-id'] ?? $headersCi['request-id'] ?? null;
 
         $validationErrors = [];

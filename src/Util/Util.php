@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Debi\Util;
 
-use Debi\Collection;
 use Debi\DebiObject;
 use Debi\Resource;
 
@@ -23,10 +22,12 @@ final class Util
      * the SDK keeps working even when the API introduces a new resource type
      * before a new SDK release is published.
      *
+     * Lists are not mapped here — they have no `object` discriminator. They
+     * are explicitly constructed by {@see Service\AbstractService::requestCollection()}.
+     *
      * @var array<string, class-string<DebiObject>>
      */
     private const RESOURCE_MAP = [
-        'list' => Collection::class,
         'customer' => Resource\Customer::class,
         'payment' => Resource\Payment::class,
         'subscription' => Resource\Subscription::class,
@@ -39,7 +40,7 @@ final class Util
         'export' => Resource\Export::class,
         'import' => Resource\Import::class,
         'gateway' => Resource\Gateway::class,
-        'webhook_endpoint' => Resource\WebhookEndpoint::class,
+        'webhook' => Resource\WebhookEndpoint::class,
     ];
 
     private function __construct() {}

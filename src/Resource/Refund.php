@@ -9,16 +9,18 @@ use Debi\ApiResource;
 /**
  * A refund of a previously created payment.
  *
+ * Sample id: `RFljikas9Fa8`.
+ *
  * @property string  $id
  * @property string  $object
  * @property bool    $livemode
- * @property int     $amount
+ * @property float   $amount
  * @property string  $currency
  * @property string  $status
  * @property string  $payment_id
  * @property ?string $reason
  * @property ?array  $metadata
- * @property int     $created_at
+ * @property string  $created_at
  */
 final class Refund extends ApiResource
 {

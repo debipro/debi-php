@@ -57,6 +57,9 @@ foreach ($debi->customers->all(['limit' => 100])->autoPagingIterator() as $custo
 
 ### Webhook verification
 
+Always pass the **raw, unmodified** request body — any middleware that
+re-encodes JSON or trims whitespace will break verification.
+
 ```php
 try {
     $event = \Debi\Webhook::constructEvent(
@@ -88,10 +91,28 @@ try {
 }
 ```
 
+## Supported resources
+
+`$debi->customers`, `$debi->payments`, `$debi->subscriptions`, `$debi->mandates`,
+`$debi->paymentMethods`, `$debi->refunds`, `$debi->sessions`, `$debi->links`,
+`$debi->events`, `$debi->exports`, `$debi->imports`, `$debi->gateways`,
+`$debi->webhookEndpoints`.
+
+Each property returns a service exposing the standard set of CRUD-style methods
+(`all`, `retrieve`, `create`, `update`, `search`, plus resource-specific
+actions). Responses are hydrated into typed `\Debi\Resource\*` objects.
+
 ## Versioning
 
 This library uses [Semantic Versioning](https://semver.org/). The API version pinned by each release
 is sent via the `Debi-Version` header and is updated only on major SDK releases.
+
+See [`CHANGELOG.md`](CHANGELOG.md) for release notes.
+
+## Security
+
+If you discover a security issue, please report it privately following
+[`SECURITY.md`](SECURITY.md). Do not open a public GitHub issue.
 
 ## License
 

@@ -32,6 +32,24 @@ abstract class AbstractService
         $options = RequestOptions::parse($opts);
         [$body] = $this->requestor->request($method, $path, $params, $options);
 
+        // 2xx with no payload (DELETE returning 204, several action endpoints,
+        // archive/restore in some configurations). Return an empty DebiObject
+        // so callers that ignore the return value (`delete()`) keep working
+        // and callers that consume it do not have to special-case the shape.
+        if ($body === []) {
+            return new DebiObject();
+        }
+
+        // Single-resource success responses are wrapped in a `data` envelope.
+        // Unwrap before hydration so callers see a clean Customer/Payment/etc.
+        if (
+            isset($body['data'])
+            && is_array($body['data'])
+            && !array_is_list($body['data'])
+        ) {
+            $body = $body['data'];
+        }
+
         $result = Util::convertToObject($body);
         if (!$result instanceof DebiObject) {
             throw new \UnexpectedValueException('Debi API returned a non-object response.');
@@ -51,14 +69,15 @@ abstract class AbstractService
         $options = RequestOptions::parse($opts);
         [$body] = $this->requestor->request('GET', $path, $params, $options);
 
-        $result = Util::convertToObject($body);
-        if (!$result instanceof Collection) {
+        if (!isset($body['data']) || !is_array($body['data'])) {
             throw new \UnexpectedValueException(
-                'Expected a list response from ' . $path . ' but received a single object.'
+                "Expected a list response from {$path} containing a `data` array."
             );
         }
-        $result->setRequestParams($this->requestor, $path, $params, $options);
-        return $result;
+
+        $collection = Collection::fromList($body);
+        $collection->setRequestParams($this->requestor, $path, $params, $options);
+        return $collection;
     }
 
     /**

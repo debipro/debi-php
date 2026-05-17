@@ -38,6 +38,8 @@ final class DefaultClient implements ClientInterface
     private int $maxRetries;
     private int $initialBackoffMs;
     private int $maxBackoffMs;
+    /** @var callable(int): void */
+    private $sleeper;
 
     /**
      * @param array{
@@ -47,6 +49,7 @@ final class DefaultClient implements ClientInterface
      *     max_retries?: int,
      *     initial_backoff_ms?: int,
      *     max_backoff_ms?: int,
+     *     sleeper?: callable(int): void,
      * } $config
      */
     public function __construct(array $config = [])
@@ -57,6 +60,12 @@ final class DefaultClient implements ClientInterface
         $this->maxRetries = max(0, $config['max_retries'] ?? self::DEFAULT_MAX_RETRIES);
         $this->initialBackoffMs = max(0, $config['initial_backoff_ms'] ?? self::DEFAULT_INITIAL_BACKOFF_MS);
         $this->maxBackoffMs = max(0, $config['max_backoff_ms'] ?? self::DEFAULT_MAX_BACKOFF_MS);
+        // The `sleeper` seam exists so tests can assert what we *would* sleep
+        // for without actually blocking wall-clock time. Production code paths
+        // never set it; the default delegates to PHP's `usleep`.
+        $this->sleeper = $config['sleeper'] ?? static function (int $microseconds): void {
+            usleep($microseconds);
+        };
     }
 
     public function send(string $method, string $url, array $headers, ?string $body): Response
@@ -148,16 +157,26 @@ final class DefaultClient implements ClientInterface
 
     private function sleepForRetry(int $attempt, ?Response $response): void
     {
-        if ($response !== null && isset($response->headers['Retry-After'])) {
-            $retryAfter = $response->headers['Retry-After'];
-            if (ctype_digit($retryAfter)) {
-                usleep(((int) $retryAfter) * 1_000_000);
-                return;
+        // HTTP header names are case-insensitive (RFC 7230). PSR-7's
+        // `getHeaders()` preserves whatever casing the upstream server used,
+        // so we must do a case-insensitive lookup or we will silently miss a
+        // server-supplied `retry-after` hint and fall back to plain backoff.
+        $retryAfter = null;
+        if ($response !== null) {
+            foreach ($response->headers as $name => $value) {
+                if (strcasecmp($name, 'Retry-After') === 0) {
+                    $retryAfter = $value;
+                    break;
+                }
             }
+        }
+        if (is_string($retryAfter) && ctype_digit($retryAfter)) {
+            ($this->sleeper)(((int) $retryAfter) * 1_000_000);
+            return;
         }
 
         $backoff = min($this->maxBackoffMs, $this->initialBackoffMs * (2 ** $attempt));
         $jitter = random_int(0, (int) ($backoff / 2));
-        usleep(($backoff + $jitter) * 1_000);
+        ($this->sleeper)(($backoff + $jitter) * 1_000);
     }
 }

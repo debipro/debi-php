@@ -1,0 +1,16 @@
+# Keep `composer create-project` / Packagist tarballs lean: ship only the
+# library code, README, LICENSE, CHANGELOG, and SECURITY policy. Tests,
+# examples, CI config, and development tool config stay in the git repo but
+# are excluded from the source archive published to consumers.
+/.github           export-ignore
+/.gitattributes    export-ignore
+/.gitignore        export-ignore
+/.phpunit.cache    export-ignore
+/examples          export-ignore
+/tests             export-ignore
+/phpstan.neon.dist export-ignore
+/phpunit.xml.dist  export-ignore
+
+# Normalize line endings so git stops fighting Windows checkouts.
+* text=auto eol=lf
+*.php text eol=lf

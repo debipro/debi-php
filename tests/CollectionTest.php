@@ -15,13 +15,20 @@ use PHPUnit\Framework\TestCase;
 
 final class CollectionTest extends TestCase
 {
+    private const ID_1 = 'CSjRZ5JqjAw0';
+    private const ID_2 = 'CSkywYrxQYDR';
+    private const ID_3 = 'CSa3Z2bvAAZ4';
+
     #[Test]
     public function it_iterates_a_single_page(): void
     {
         $http = new FakeHttpClient();
         $http->queue(new Response(
             200,
-            '{"object":"list","data":[{"id":"cus_1","object":"customer"},{"id":"cus_2","object":"customer"}]}',
+            '{"data":['
+            . '{"id":"' . self::ID_1 . '","object":"customer"},'
+            . '{"id":"' . self::ID_2 . '","object":"customer"}'
+            . '],"links":{"next":null},"meta":{"next_cursor":null}}',
             [],
         ));
         $service = new CustomerService(new ApiRequestor($http, 'sk', 'https://x', '2025-10-02'));
@@ -31,7 +38,9 @@ final class CollectionTest extends TestCase
         foreach ($list as $c) {
             $ids[] = $c->id;
         }
-        $this->assertSame(['cus_1', 'cus_2'], $ids);
+        $this->assertSame([self::ID_1, self::ID_2], $ids);
+        $this->assertFalse($list->hasMore());
+        $this->assertNull($list->nextCursor());
     }
 
     #[Test]
@@ -41,15 +50,21 @@ final class CollectionTest extends TestCase
         $http
             ->queue(new Response(
                 200,
-                '{"object":"list","data":[{"id":"cus_1","object":"customer"},{"id":"cus_2","object":"customer"}]}',
+                '{"data":['
+                . '{"id":"' . self::ID_1 . '","object":"customer"},'
+                . '{"id":"' . self::ID_2 . '","object":"customer"}'
+                . '],'
+                . '"links":{"next":"https://x/v1/customers?limit=2&starting_after=' . self::ID_2 . '"},'
+                . '"meta":{"next_cursor":"' . self::ID_2 . '"}}',
                 [],
             ))
             ->queue(new Response(
                 200,
-                '{"object":"list","data":[{"id":"cus_3","object":"customer"}]}',
+                '{"data":[{"id":"' . self::ID_3 . '","object":"customer"}],'
+                . '"links":{"next":null},'
+                . '"meta":{"next_cursor":null}}',
                 [],
-            ))
-            ->queue(new Response(200, '{"object":"list","data":[]}', []));
+            ));
 
         $service = new CustomerService(new ApiRequestor($http, 'sk', 'https://x', '2025-10-02'));
 
@@ -59,17 +74,24 @@ final class CollectionTest extends TestCase
             $collected[] = $c->id;
         }
 
-        $this->assertSame(['cus_1', 'cus_2', 'cus_3'], $collected);
+        $this->assertSame([self::ID_1, self::ID_2, self::ID_3], $collected);
         $this->assertSame('https://x/v1/customers?limit=2', $http->calls[0]['url']);
-        $this->assertSame('https://x/v1/customers?limit=2&starting_after=cus_2', $http->calls[1]['url']);
-        $this->assertSame('https://x/v1/customers?limit=2&starting_after=cus_3', $http->calls[2]['url']);
+        $this->assertSame(
+            'https://x/v1/customers?limit=2&starting_after=' . self::ID_2,
+            $http->calls[1]['url'],
+        );
     }
 
     #[Test]
-    public function auto_paging_stops_when_a_page_is_empty(): void
+    public function auto_paging_stops_when_links_next_is_null(): void
     {
         $http = new FakeHttpClient();
-        $http->queue(new Response(200, '{"object":"list","data":[]}', []));
+        $http->queue(new Response(
+            200,
+            '{"data":[{"id":"' . self::ID_1 . '","object":"customer"}],'
+            . '"links":{"next":null},"meta":{}}',
+            [],
+        ));
 
         $service = new CustomerService(new ApiRequestor($http, 'sk', 'https://x', '2025-10-02'));
 
@@ -77,25 +99,22 @@ final class CollectionTest extends TestCase
         foreach ($service->all()->autoPagingIterator() as $_) {
             $count++;
         }
-        $this->assertSame(0, $count);
+        $this->assertSame(1, $count);
         $this->assertCount(1, $http->calls);
     }
 
     #[Test]
-    public function collection_round_trips_to_array(): void
+    public function fromList_constructs_a_collection_with_meta(): void
     {
-        $list = Collection::constructFrom([
-            'object' => 'list',
-            'data' => [['id' => 'cus_1', 'object' => 'customer']],
+        $list = Collection::fromList([
+            'data' => [['id' => self::ID_1, 'object' => 'customer']],
+            'links' => ['next' => 'https://x/page2'],
+            'meta' => ['next_cursor' => self::ID_1, 'per_page' => 25],
         ]);
 
-        $this->assertSame('list', $list->object);
-        $this->assertSame(
-            [
-                'object' => 'list',
-                'data' => [['id' => 'cus_1', 'object' => 'customer']],
-            ],
-            $list->toArray(),
-        );
+        $this->assertCount(1, $list->data());
+        $this->assertTrue($list->hasMore());
+        $this->assertSame(self::ID_1, $list->nextCursor());
+        $this->assertSame(25, $list->meta['per_page']);
     }
 }

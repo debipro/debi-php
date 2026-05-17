@@ -11,8 +11,9 @@
  *   # Live sandbox mode — hits https://api.debi-test.pro
  *   DEBI_API_KEY=sk_test_xxx php examples/quickstart.php
  *
- *   # Local Debi (Laravel) instance
- *   DEBI_API_KEY=sk_test_xxx DEBI_API_BASE=http://debi.test php examples/quickstart.php
+ *   # Custom environment (e.g. production or a self-hosted base URL)
+ *   DEBI_API_KEY=sk_test_xxx DEBI_API_BASE=https://api.debi.pro \
+ *     php examples/quickstart.php
  */
 
 declare(strict_types=1);
@@ -105,7 +106,7 @@ try {
 // ---------------------------------------------------------------------------
 section('5. Error handling: deliberately bad input');
 try {
-    $client->customers->retrieve('cus_does_not_exist_xxxxxxx');
+    $client->customers->retrieve('CS0000notFound0');
     out('(unexpected: no error thrown)');
 } catch (ApiErrorException $e) {
     out('caught ' . $e::class . "  status={$e->httpStatus}  msg=\"{$e->getMessage()}\"");
@@ -149,24 +150,28 @@ function makeOfflineClient(): DebiClient
         {
             $this->script = [
                 new Response(201, json_encode([
-                    'id' => 'cus_demo_01', 'object' => 'customer', 'livemode' => false,
-                    'email' => 'ana@example.com', 'name' => 'Ana Pérez',
-                ], JSON_THROW_ON_ERROR), []),
-                new Response(200, json_encode([
-                    'id' => 'cus_demo_01', 'object' => 'customer', 'livemode' => false,
-                    'email' => 'ana@example.com',
-                ], JSON_THROW_ON_ERROR), []),
-                new Response(200, json_encode([
-                    'object' => 'list',
                     'data' => [
-                        ['id' => 'cus_demo_01', 'object' => 'customer', 'email' => 'ana@example.com'],
-                        ['id' => 'cus_demo_02', 'object' => 'customer', 'email' => 'beto@example.com'],
+                        'id' => 'CSjRZ5JqjAw0', 'object' => 'customer', 'livemode' => false,
+                        'email' => 'ana@example.com', 'name' => 'Ana Pérez',
                     ],
                 ], JSON_THROW_ON_ERROR), []),
+                new Response(200, json_encode([
+                    'data' => [
+                        'id' => 'CSjRZ5JqjAw0', 'object' => 'customer', 'livemode' => false,
+                        'email' => 'ana@example.com',
+                    ],
+                ], JSON_THROW_ON_ERROR), []),
+                new Response(200, json_encode([
+                    'data' => [
+                        ['id' => 'CSjRZ5JqjAw0', 'object' => 'customer', 'email' => 'ana@example.com'],
+                        ['id' => 'CSkywYrxQYDR', 'object' => 'customer', 'email' => 'beto@example.com'],
+                    ],
+                    'links' => ['next' => null],
+                    'meta' => ['next_cursor' => null, 'per_page' => 5],
+                ], JSON_THROW_ON_ERROR), []),
                 new Response(404, json_encode([
-                    'message' => 'No such customer: cus_does_not_exist_xxxxxxx',
-                    'code' => 'resource_missing',
-                ], JSON_THROW_ON_ERROR), ['X-Request-Id' => 'req_demo']),
+                    'message' => 'Record not found.',
+                ], JSON_THROW_ON_ERROR), []),
             ];
         }
 

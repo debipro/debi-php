@@ -14,7 +14,7 @@ use Debi\ApiResource;
  * @property string  $status
  * @property string  $resource
  * @property ?string $url
- * @property int     $created_at
+ * @property string  $created_at
  */
 final class Export extends ApiResource
 {
