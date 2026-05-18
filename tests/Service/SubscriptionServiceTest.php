@@ -56,8 +56,8 @@ final class SubscriptionServiceTest extends ServiceTestCase
     public function search_hits_the_search_subpath(): void
     {
         $this->queueEmptyList();
-        $this->service->search(['query' => 'status:active']);
-        $this->assertCalled('GET', '/v1/subscriptions/search?query=status%3Aactive');
+        $this->service->search(['q' => 'status:active']);
+        $this->assertCalled('GET', '/v1/subscriptions/search?q=status%3Aactive');
     }
 
     #[Test]

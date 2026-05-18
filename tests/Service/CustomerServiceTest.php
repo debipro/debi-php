@@ -122,7 +122,7 @@ final class CustomerServiceTest extends TestCase
     {
         $this->http->queue(new Response(200, '{"data":[],"links":{"next":null},"meta":{}}', []));
 
-        $this->service->search(['query' => 'email:"a@b.com"']);
+        $this->service->search(['q' => 'email:"a@b.com"']);
 
         $this->assertStringContainsString('/v1/customers/search', $this->http->lastCall()['url']);
     }

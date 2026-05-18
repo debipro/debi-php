@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Debi\Tests;
 
 use Debi\DebiClient;
+use Debi\Service\BillingPortalConfigurationService;
+use Debi\Service\BillingPortalSessionService;
 use Debi\Service\CustomerService;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
@@ -66,5 +68,25 @@ final class DebiClientTest extends TestCase
         $this->expectException(\InvalidArgumentException::class);
         /** @phpstan-ignore-next-line — intentional misuse */
         $client->bogus;
+    }
+
+    #[Test]
+    public function billing_portal_sessions_property_returns_the_right_service(): void
+    {
+        $client = new DebiClient('sk_test_abc');
+        $this->assertInstanceOf(BillingPortalSessionService::class, $client->billingPortalSessions);
+        $this->assertSame($client->billingPortalSessions, $client->billingPortalSessions, 'services must be cached');
+    }
+
+    #[Test]
+    public function billing_portal_configurations_property_returns_the_right_service(): void
+    {
+        $client = new DebiClient('sk_test_abc');
+        $this->assertInstanceOf(BillingPortalConfigurationService::class, $client->billingPortalConfigurations);
+        $this->assertSame(
+            $client->billingPortalConfigurations,
+            $client->billingPortalConfigurations,
+            'services must be cached',
+        );
     }
 }

@@ -7,6 +7,8 @@ namespace Debi;
 use Debi\HttpClient\ClientInterface as HttpClientInterface;
 use Debi\HttpClient\DefaultClient;
 use Debi\Service\AbstractService;
+use Debi\Service\BillingPortalConfigurationService;
+use Debi\Service\BillingPortalSessionService;
 use Debi\Service\CustomerService;
 use Debi\Service\EventService;
 use Debi\Service\ExportService;
@@ -43,6 +45,8 @@ use Debi\Service\WebhookEndpointService;
  * @property-read ImportService $imports
  * @property-read GatewayService $gateways
  * @property-read WebhookEndpointService $webhookEndpoints
+ * @property-read BillingPortalSessionService $billingPortalSessions
+ * @property-read BillingPortalConfigurationService $billingPortalConfigurations
  */
 final class DebiClient
 {
@@ -128,10 +132,13 @@ final class DebiClient
             'imports' => new ImportService($this->requestor),
             'gateways' => new GatewayService($this->requestor),
             'webhookEndpoints' => new WebhookEndpointService($this->requestor),
+            'billingPortalSessions' => new BillingPortalSessionService($this->requestor),
+            'billingPortalConfigurations' => new BillingPortalConfigurationService($this->requestor),
             default => throw new \InvalidArgumentException(
                 "Unknown Debi service: '{$name}'. "
                 . "Available: customers, payments, subscriptions, mandates, paymentMethods, "
-                . "refunds, sessions, links, events, exports, imports, gateways, webhookEndpoints."
+                . "refunds, sessions, links, events, exports, imports, gateways, webhookEndpoints, "
+                . "billingPortalSessions, billingPortalConfigurations."
             ),
         };
     }

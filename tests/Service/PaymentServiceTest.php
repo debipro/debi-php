@@ -56,8 +56,8 @@ final class PaymentServiceTest extends ServiceTestCase
     public function search_posts_to_the_search_subpath(): void
     {
         $this->queueEmptyList();
-        $this->service->search(['query' => 'status:succeeded']);
-        $this->assertCalled('GET', '/v1/payments/search?query=status%3Asucceeded');
+        $this->service->search(['q' => 'status:succeeded']);
+        $this->assertCalled('GET', '/v1/payments/search?q=status%3Asucceeded');
     }
 
     #[Test]
@@ -78,5 +78,38 @@ final class PaymentServiceTest extends ServiceTestCase
         $this->queueObject('payment', self::ID);
         $this->service->stopAutoRetrying(self::ID);
         $this->assertCalled('POST', '/v1/payments/' . self::ID . '/actions/stop_auto_retrying');
+    }
+
+    #[Test]
+    public function transaction_endpoints_hit_the_beta_subpaths(): void
+    {
+        // Spec: GET /v1/payments/{id}/transaction (BETA)
+        $this->http->queue(new \Debi\HttpClient\Response(
+            200,
+            '{"id":"TX1","object":"bank_transaction","amount":100.0}',
+            [],
+        ));
+        $this->service->transaction(self::ID);
+        $this->assertCalled('GET', '/v1/payments/' . self::ID . '/transaction');
+
+        // Spec: GET /v1/payments/{id}/transaction/match_candidates (BETA)
+        $this->http->queue(new \Debi\HttpClient\Response(
+            200,
+            '{"object":"list","data":[]}',
+            [],
+        ));
+        $this->service->transactionMatchCandidates(self::ID);
+        $this->assertCalled('GET', '/v1/payments/' . self::ID . '/transaction/match_candidates');
+
+        // Spec: POST /v1/payments/{id}/transaction/match  body { remote_transaction_id } (BETA)
+        $this->http->queue(new \Debi\HttpClient\Response(
+            200,
+            '{"message":"Transaction matched successfully"}',
+            [],
+        ));
+        $this->service->transactionMatch(self::ID, ['remote_transaction_id' => 'RT123']);
+        $call = $this->http->lastCall();
+        $this->assertCalled('POST', '/v1/payments/' . self::ID . '/transaction/match');
+        $this->assertSame('{"remote_transaction_id":"RT123"}', $call['body']);
     }
 }

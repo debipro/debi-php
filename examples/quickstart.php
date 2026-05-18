@@ -166,8 +166,9 @@ function makeOfflineClient(): DebiClient
                         ['id' => 'CSjRZ5JqjAw0', 'object' => 'customer', 'email' => 'ana@example.com'],
                         ['id' => 'CSkywYrxQYDR', 'object' => 'customer', 'email' => 'beto@example.com'],
                     ],
-                    'links' => ['next' => null],
-                    'meta' => ['next_cursor' => null, 'per_page' => 5],
+                    // Pagination envelope matches openapi/components/schemas/{Links,Meta}.yaml.
+                    'links' => ['first' => null, 'last' => null, 'next' => null, 'prev' => null],
+                    'meta' => ['per_page' => 5, 'total' => 2, 'path' => 'https://api.debi.pro/v1/customers', 'next_cursor' => null],
                 ], JSON_THROW_ON_ERROR), []),
                 new Response(404, json_encode([
                     'message' => 'Record not found.',

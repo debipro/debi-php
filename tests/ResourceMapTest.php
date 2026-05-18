@@ -36,8 +36,10 @@ final class ResourceMapTest extends TestCase
         yield 'Event'            => [Resource\Event::class];
         yield 'Export'           => [Resource\Export::class];
         yield 'Import'           => [Resource\Import::class];
-        yield 'Gateway'          => [Resource\Gateway::class];
-        yield 'WebhookEndpoint'  => [Resource\WebhookEndpoint::class];
+        yield 'Gateway'                    => [Resource\Gateway::class];
+        yield 'WebhookEndpoint'            => [Resource\WebhookEndpoint::class];
+        yield 'BillingPortalSession'       => [Resource\BillingPortalSession::class];
+        yield 'BillingPortalConfiguration' => [Resource\BillingPortalConfiguration::class];
     }
 
     /**

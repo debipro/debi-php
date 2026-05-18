@@ -96,4 +96,25 @@ abstract class AbstractService
     ): DebiObject {
         return $this->request('POST', "{$basePath}/{$id}/actions/{$verb}", $params, $opts);
     }
+
+    /**
+     * Invoke a sub-resource verb that lives directly under the resource path,
+     * with no `/actions/` prefix — e.g. `POST /v1/payment_methods/{id}/attach`
+     * (not `/v1/payment_methods/{id}/actions/attach`). The Debi API uses both
+     * conventions, with `/actions/` for stateful state-machine transitions and
+     * plain sub-paths for relationship operations.
+     *
+     * @param array<int|string,mixed>                 $params
+     * @param array<string,mixed>|RequestOptions|null $opts
+     */
+    protected function subResource(
+        string $method,
+        string $basePath,
+        string $id,
+        string $subPath,
+        array $params = [],
+        array|RequestOptions|null $opts = null,
+    ): DebiObject {
+        return $this->request($method, "{$basePath}/{$id}/{$subPath}", $params, $opts);
+    }
 }

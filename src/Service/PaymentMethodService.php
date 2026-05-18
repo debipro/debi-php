@@ -5,11 +5,14 @@ declare(strict_types=1);
 namespace Debi\Service;
 
 use Debi\Collection;
+use Debi\DebiObject;
 use Debi\RequestOptions;
 use Debi\Resource\PaymentMethod;
 
 /**
  * Operations on `/v1/payment_methods`.
+ *
+ * Spec reference: openapi/paths/payment_methods*.yaml
  */
 final class PaymentMethodService extends AbstractService
 {
@@ -56,22 +59,43 @@ final class PaymentMethodService extends AbstractService
     }
 
     /**
+     * Attach a payment method to a customer.
+     *
+     * Wire shape: `POST /v1/payment_methods/{id}/attach` with body `{customer: "CS..."}`.
+     * Returns `204 No Content`, so the SDK returns a typed but empty
+     * {@see DebiObject} — callers usually discard the return value.
+     *
+     * @param string                                  $id         payment method id
+     * @param string                                  $customerId customer id to attach to
      * @param array<string,mixed>|RequestOptions|null $opts
      */
-    public function attach(string $id, array|RequestOptions|null $opts = null): PaymentMethod
+    public function attach(string $id, string $customerId, array|RequestOptions|null $opts = null): DebiObject
     {
-        /** @var PaymentMethod $obj */
-        $obj = $this->customAction('attach', self::BASE, $id, [], $opts);
-        return $obj;
+        return $this->subResource(
+            method: 'POST',
+            basePath: self::BASE,
+            id: $id,
+            subPath: 'attach',
+            params: ['customer' => $customerId],
+            opts: $opts,
+        );
     }
 
     /**
+     * Detach a payment method from its customer.
+     *
+     * Wire shape: `POST /v1/payment_methods/{id}/detach`, no body, returns 204.
+     *
      * @param array<string,mixed>|RequestOptions|null $opts
      */
-    public function detach(string $id, array|RequestOptions|null $opts = null): PaymentMethod
+    public function detach(string $id, array|RequestOptions|null $opts = null): DebiObject
     {
-        /** @var PaymentMethod $obj */
-        $obj = $this->customAction('detach', self::BASE, $id, [], $opts);
-        return $obj;
+        return $this->subResource(
+            method: 'POST',
+            basePath: self::BASE,
+            id: $id,
+            subPath: 'detach',
+            opts: $opts,
+        );
     }
 }

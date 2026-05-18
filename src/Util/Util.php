@@ -41,6 +41,11 @@ final class Util
         'import' => Resource\Import::class,
         'gateway' => Resource\Gateway::class,
         'webhook' => Resource\WebhookEndpoint::class,
+        // Billing-portal resources use Stripe-style dotted discriminators
+        // (see openapi components/schemas/BillingPortal*.yaml); the rest of
+        // the surface area still uses bare snake_case names.
+        'billing_portal.session' => Resource\BillingPortalSession::class,
+        'billing_portal.configuration' => Resource\BillingPortalConfiguration::class,
     ];
 
     private function __construct() {}
