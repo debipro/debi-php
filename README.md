@@ -19,6 +19,24 @@ If your project does not already provide a PSR-18 client and PSR-17 factories, i
 composer require guzzlehttp/guzzle
 ```
 
+### WordPress
+
+In a WordPress plugin you usually do **not** want Guzzle: shipping it
+unscoped will eventually collide with another plugin's copy, and
+auto-discovery bypasses the WP HTTP configuration (proxies,
+`WP_HTTP_BLOCK_EXTERNAL`, `pre_http_request` filters, host SSL pins). Instead,
+route the SDK through `wp_remote_request` with the PSR-18 adapter shown in
+[`examples/wordpress/WpHttpClient.php`](examples/wordpress/WpHttpClient.php),
+and pair it with the tiny zero-dep PSR-7 library `nyholm/psr7`:
+
+```bash
+composer require debi/debi-php nyholm/psr7
+```
+
+See [`examples/wordpress/debi-wp-plugin.php`](examples/wordpress/debi-wp-plugin.php)
+for a complete reference plugin (client bootstrap, an example API call from
+`user_register`, and a signed-webhook REST endpoint).
+
 ## Quickstart
 
 ```php
@@ -180,6 +198,8 @@ The `examples/` directory contains runnable scripts:
 | `sandbox.php` | Live sandbox runner that exercises the full surface against `https://api.debi-test.pro` (needs `DEBI_API_KEY=sk_test_...`) |
 | `webhook_listener.php` | Minimal listener showing webhook signature verification |
 | `webhook_e2e.php` | End-to-end webhook round trip |
+| `wordpress/WpHttpClient.php` | PSR-18 adapter that routes the SDK through `wp_remote_request` |
+| `wordpress/debi-wp-plugin.php` | Reference WordPress plugin: client bootstrap + REST webhook endpoint |
 
 ## Versioning
 
