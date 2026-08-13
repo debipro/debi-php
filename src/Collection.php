@@ -27,6 +27,8 @@ final class Collection extends DebiObject implements \IteratorAggregate
     /** @var array<int|string,mixed> */
     private array $requestParams = [];
     private ?RequestOptions $requestOpts = null;
+    /** @var class-string<DebiObject>|null */
+    private ?string $itemFallback = null;
 
     /**
      * Hydrate a Collection from the raw decoded response body. Items inside
@@ -34,18 +36,21 @@ final class Collection extends DebiObject implements \IteratorAggregate
      * discriminator.
      *
      * @param array<string,mixed> $body
+     * @param class-string<DebiObject>|null $itemFallback class to hydrate items
+     *        into when the endpoint omits the `object` discriminator
      */
-    public static function fromList(array $body): self
+    public static function fromList(array $body, ?string $itemFallback = null): self
     {
         $rawItems = $body['data'] ?? [];
         $items = [];
         if (is_array($rawItems)) {
             foreach ($rawItems as $item) {
-                $items[] = Util\Util::convertToObject($item);
+                $items[] = Util\Util::convertToObject($item, $itemFallback);
             }
         }
 
         $instance = new self();
+        $instance->itemFallback = $itemFallback;
         $instance->values = [
             'data' => $items,
             'links' => $body['links'] ?? null,
@@ -159,7 +164,7 @@ final class Collection extends DebiObject implements \IteratorAggregate
             return null;
         }
 
-        $next = self::fromList($body);
+        $next = self::fromList($body, $this->itemFallback);
         $next->setRequestParams($this->requestor, $this->requestPath, $params, $this->requestOpts);
         return $next;
     }

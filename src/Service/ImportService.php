@@ -10,6 +10,10 @@ use Debi\Resource\Import;
 
 /**
  * Operations on `/v1/imports`.
+ *
+ * Import payloads carry no `object` discriminator, so `all()`, `retrieve()`
+ * and `create()` name {@see Import} explicitly for hydration instead of
+ * relying on the map. `rows()` does not: an import's rows are not imports.
  */
 final class ImportService extends AbstractService
 {
@@ -21,7 +25,7 @@ final class ImportService extends AbstractService
      */
     public function all(array $params = [], array|RequestOptions|null $opts = null): Collection
     {
-        return $this->requestCollection(self::BASE, $params, $opts);
+        return $this->requestCollection(self::BASE, $params, $opts, Import::class);
     }
 
     /**
@@ -31,7 +35,7 @@ final class ImportService extends AbstractService
     public function retrieve(string $id, array $params = [], array|RequestOptions|null $opts = null): Import
     {
         /** @var Import $obj */
-        $obj = $this->request('GET', self::BASE . '/' . $id, $params, $opts);
+        $obj = $this->request('GET', self::BASE . '/' . $id, $params, $opts, Import::class);
         return $obj;
     }
 
@@ -42,7 +46,7 @@ final class ImportService extends AbstractService
     public function create(array $params, array|RequestOptions|null $opts = null): Import
     {
         /** @var Import $obj */
-        $obj = $this->request('POST', self::BASE, $params, $opts);
+        $obj = $this->request('POST', self::BASE, $params, $opts, Import::class);
         return $obj;
     }
 

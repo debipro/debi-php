@@ -50,6 +50,40 @@ abstract class ServiceTestCase extends TestCase
         $this->http->queue(new Response($status, json_encode($payload, JSON_THROW_ON_ERROR), []));
     }
 
+    /**
+     * Queue a single-resource envelope exactly as given, with no `object`
+     * discriminator added. For the handful of endpoints that answer without
+     * one, where {@see queueObject()} would stub a shape the API never sends.
+     *
+     * @param array<string,mixed> $data
+     */
+    protected function queueRaw(array $data, int $status = 200): void
+    {
+        $this->http->queue(new Response(
+            $status,
+            json_encode(['data' => $data], JSON_THROW_ON_ERROR),
+            [],
+        ));
+    }
+
+    /**
+     * Queue a list envelope whose items carry no `object` discriminator.
+     *
+     * @param list<array<string,mixed>> $items
+     */
+    protected function queueRawList(array $items): void
+    {
+        $this->http->queue(new Response(
+            200,
+            json_encode([
+                'data' => $items,
+                'links' => ['next' => null],
+                'meta' => ['next_cursor' => null],
+            ], JSON_THROW_ON_ERROR),
+            [],
+        ));
+    }
+
     protected function queueEmptyList(): void
     {
         $this->http->queue(new Response(

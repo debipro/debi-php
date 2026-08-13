@@ -54,8 +54,17 @@ final class Util
      * Recursively convert a decoded JSON value into the matching object graph.
      * Arrays carrying an `object` field are upgraded to concrete subclasses;
      * everything else falls back to {@see DebiObject}.
+     *
+     * A few endpoints answer without an `object` discriminator even though the
+     * resource has a dedicated class (exports and imports, at the time of
+     * writing). `$fallback` lets the calling service name the class to hydrate
+     * into for those, so their return types hold. It applies to the top-level
+     * value only: nested values recurse through the discriminator map as usual,
+     * since the parent's type says nothing about its children's.
+     *
+     * @param class-string<DebiObject>|null $fallback
      */
-    public static function convertToObject(mixed $value): mixed
+    public static function convertToObject(mixed $value, ?string $fallback = null): mixed
     {
         if (is_array($value)) {
             if (self::isSequential($value)) {
@@ -64,7 +73,7 @@ final class Util
             $object = is_string($value['object'] ?? null) ? $value['object'] : null;
             $class = ($object !== null && isset(self::RESOURCE_MAP[$object]))
                 ? self::RESOURCE_MAP[$object]
-                : DebiObject::class;
+                : ($fallback ?? DebiObject::class);
 
             /** @var DebiObject $instance */
             $instance = $class::constructFrom($value);

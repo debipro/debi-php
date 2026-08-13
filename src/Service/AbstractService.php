@@ -22,12 +22,16 @@ abstract class AbstractService
     /**
      * @param array<int|string,mixed>          $params
      * @param array<string,mixed>|RequestOptions|null $opts
+     * @param class-string<DebiObject>|null $expect class to hydrate into when the
+     *        response carries no `object` discriminator. Services whose endpoint
+     *        omits it must pass this, or their declared return type will not hold.
      */
     protected function request(
         string $method,
         string $path,
         array $params = [],
         array|RequestOptions|null $opts = null,
+        ?string $expect = null,
     ): DebiObject {
         $options = RequestOptions::parse($opts);
         [$body] = $this->requestor->request($method, $path, $params, $options);
@@ -50,7 +54,7 @@ abstract class AbstractService
             $body = $body['data'];
         }
 
-        $result = Util::convertToObject($body);
+        $result = Util::convertToObject($body, $expect);
         if (!$result instanceof DebiObject) {
             throw new \UnexpectedValueException('Debi API returned a non-object response.');
         }
@@ -60,11 +64,14 @@ abstract class AbstractService
     /**
      * @param array<int|string,mixed>          $params
      * @param array<string,mixed>|RequestOptions|null $opts
+     * @param class-string<DebiObject>|null $expect class to hydrate items into
+     *        when the endpoint omits the `object` discriminator
      */
     protected function requestCollection(
         string $path,
         array $params = [],
         array|RequestOptions|null $opts = null,
+        ?string $expect = null,
     ): Collection {
         $options = RequestOptions::parse($opts);
         [$body] = $this->requestor->request('GET', $path, $params, $options);
@@ -75,7 +82,7 @@ abstract class AbstractService
             );
         }
 
-        $collection = Collection::fromList($body);
+        $collection = Collection::fromList($body, $expect);
         $collection->setRequestParams($this->requestor, $path, $params, $options);
         return $collection;
     }
