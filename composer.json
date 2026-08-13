@@ -6,8 +6,8 @@
     "homepage": "https://debi.pro",
     "keywords": ["debi", "api", "payments", "sdk", "payment-orchestrator"],
     "support": {
-        "issues": "https://github.com/debi/debi-php/issues",
-        "source": "https://github.com/debi/debi-php"
+        "issues": "https://github.com/debipro/debi-php/issues",
+        "source": "https://github.com/debipro/debi-php"
     },
     "require": {
         "php": ">=8.1",

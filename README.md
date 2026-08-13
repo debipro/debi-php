@@ -125,6 +125,42 @@ The wire surface is verified against the [Debi OpenAPI specification](https://de
 endpoint paths, HTTP methods, parameter names, and `object` discriminators all
 match the published spec.
 
+### Reading fields
+
+Responses are array-backed objects. Each `\Debi\Resource\*` class carries an
+`@property` list documenting the fields the API returns for it — that list is
+the reference for what you can read, and what your IDE will autocomplete.
+
+Related objects usually arrive expanded, so reach through them rather than
+looking for an id field that does not exist on the wire:
+
+```php
+$subscription = $debi->subscriptions->retrieve('SBmQ6j9NWxblNv');
+
+$subscription->customer->id;   // the customer, expanded
+$subscription->customer_id;    // warning: no such field
+```
+
+Reading a field the response did not carry raises an `E_USER_WARNING` and
+evaluates to null, so a typo does not travel silently through your code. A
+field the API *did* return as null reads as null without complaint.
+
+When absence is a legitimate answer rather than a mistake — probing for a field
+a newer API version returns but your installed SDK does not document yet — read
+it in one of these ways instead, none of which warn:
+
+```php
+$subscription['field_added_after_this_release'];        // array access
+$subscription->field_added_after_this_release ?? null;  // `??`
+isset($subscription->field_added_after_this_release);
+```
+
+> **Laravel and similar:** where the error handler turns warnings into
+> exceptions, a plain `$subscription->missing_field` throws an `ErrorException`
+> rather than evaluating to null. That is the intended severity, but it makes
+> the three quiet forms above load-bearing when you genuinely do not know
+> whether a field is there.
+
 ### Billing portal
 
 The billing portal is a two-resource flow: **Configurations** describe what the
