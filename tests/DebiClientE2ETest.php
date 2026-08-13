@@ -76,7 +76,9 @@ final class DebiClientE2ETest extends TestCase
             ))
             ->queue(new Response(
                 201,
-                '{"data":{"id":"' . self::PAYMENT_ID . '","object":"payment","customer_id":"' . self::CUSTOMER_ID . '"}}',
+                // The API answers with the customer expanded, never as a
+                // `customer_id` scalar. Keep the stub faithful to that.
+                '{"data":{"id":"' . self::PAYMENT_ID . '","object":"payment","customer":{"id":"' . self::CUSTOMER_ID . '","object":"customer"}}}',
                 [],
             ));
 
@@ -88,6 +90,8 @@ final class DebiClientE2ETest extends TestCase
         ]);
 
         $this->assertInstanceOf(Payment::class, $payment);
+        $this->assertInstanceOf(Customer::class, $payment->customer);
+        $this->assertSame(self::CUSTOMER_ID, $payment->customer->id);
 
         // Util::objectsToIds should have flattened the Customer to its id
         // before the body was JSON-encoded.

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Debi\Resource;
 
 use Debi\ApiResource;
+use Debi\DebiObject;
 
 /**
  * A customer of your organization.
@@ -21,7 +22,7 @@ use Debi\ApiResource;
  * @property ?string     $identification_number
  * @property ?string     $default_payment_method_id
  * @property ?string     $gateway_identifier
- * @property ?array      $metadata
+ * @property ?DebiObject $metadata
  * @property string      $created_at
  * @property string      $updated_at
  * @property ?string     $deleted_at

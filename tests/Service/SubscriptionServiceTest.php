@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Debi\Tests\Service;
 
+use Debi\Resource\Customer;
 use Debi\Resource\Subscription;
 use Debi\Service\SubscriptionService;
 use PHPUnit\Framework\Attributes\Test;
@@ -11,6 +12,7 @@ use PHPUnit\Framework\Attributes\Test;
 final class SubscriptionServiceTest extends ServiceTestCase
 {
     private const ID = 'SBmQ6j9NWxblNv';
+    private const CUSTOMER_ID = 'CSjRZ5JqjAw0';
 
     private SubscriptionService $service;
 
@@ -34,6 +36,23 @@ final class SubscriptionServiceTest extends ServiceTestCase
         $this->queueObject('subscription', self::ID);
         $this->assertInstanceOf(Subscription::class, $this->service->retrieve(self::ID));
         $this->assertCalled('GET', '/v1/subscriptions/' . self::ID);
+    }
+
+    #[Test]
+    public function retrieve_exposes_the_customer_expanded_rather_than_as_an_id(): void
+    {
+        // A subscription carries no `customer_id` scalar. Code reaching for one
+        // gets a silent null, so the expanded shape is pinned here.
+        $this->queueObject('subscription', self::ID, 200, [
+            'customer' => ['id' => self::CUSTOMER_ID, 'object' => 'customer', 'email' => 'a@b.com'],
+        ]);
+
+        $subscription = $this->service->retrieve(self::ID);
+
+        $this->assertInstanceOf(Customer::class, $subscription->customer);
+        $this->assertSame(self::CUSTOMER_ID, $subscription->customer->id);
+        // Array access rather than `->customer_id`, which now warns by design.
+        $this->assertNull($subscription['customer_id']);
     }
 
     #[Test]
