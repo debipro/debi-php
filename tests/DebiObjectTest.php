@@ -28,17 +28,75 @@ final class DebiObjectTest extends TestCase
     }
 
     #[Test]
-    public function unknown_keys_return_null_without_warnings(): void
+    public function reading_an_unknown_property_warns_and_returns_null(): void
     {
-        // The point of the array-backed model is forward compatibility: when
-        // the API adds a field the SDK has not yet documented, user code
-        // reading it should get null, not a PHP notice.
+        // A field the response never carried is almost always a typo or a
+        // stale assumption about the API's shape. Returning a bare null lets
+        // it travel silently into the caller's logic, so the read is loud.
         $o = DebiObject::constructFrom([]);
 
-        $this->assertNull($o->never_set);
-        $this->assertNull($o['never_set']);
-        $this->assertFalse(isset($o->never_set));
-        $this->assertFalse(isset($o['never_set']));
+        $value = null;
+        $warnings = $this->captureUserWarnings(static function () use ($o, &$value): void {
+            $value = $o->never_set;
+        });
+
+        $this->assertNull($value);
+        $this->assertCount(1, $warnings);
+        $this->assertStringContainsString('never_set', $warnings[0]);
+        $this->assertStringContainsString(DebiObject::class, $warnings[0]);
+    }
+
+    #[Test]
+    public function the_warning_names_the_concrete_resource_class(): void
+    {
+        // "Debi\DebiObject has no field x" would send the reader hunting
+        // through the base class; the @property list they need is on Customer.
+        $customer = Customer::constructFrom(['id' => 'CS1', 'object' => 'customer']);
+
+        $warnings = $this->captureUserWarnings(static function () use ($customer): void {
+            $customer->emial;
+        });
+
+        $this->assertCount(1, $warnings);
+        $this->assertStringContainsString(Customer::class, $warnings[0]);
+    }
+
+    #[Test]
+    public function array_access_and_isset_stay_silent_for_unknown_keys(): void
+    {
+        // Forward compatibility: reading a field the SDK has not documented
+        // yet must remain possible without tripping the warning above.
+        $o = DebiObject::constructFrom([]);
+
+        $this->assertNoUserWarning(function () use ($o): void {
+            $this->assertNull($o['never_set']);
+            $this->assertFalse(isset($o->never_set));
+            $this->assertFalse(isset($o['never_set']));
+        });
+    }
+
+    #[Test]
+    public function the_null_coalescing_operator_stays_silent_for_unknown_properties(): void
+    {
+        // `??` consults __isset() and short-circuits before __get() ever runs.
+        // This is the escape hatch callers reach for most, and applications
+        // that promote warnings to exceptions depend on it not throwing.
+        $o = DebiObject::constructFrom([]);
+
+        $this->assertNoUserWarning(function () use ($o): void {
+            $this->assertSame('fallback', $o->never_set ?? 'fallback');
+        });
+    }
+
+    #[Test]
+    public function a_field_the_api_returned_as_null_does_not_warn(): void
+    {
+        // `deleted_at: null` is a field the API sent, not a missing one.
+        $o = DebiObject::constructFrom(['deleted_at' => null]);
+
+        $this->assertNoUserWarning(function () use ($o): void {
+            $this->assertNull($o->deleted_at);
+        });
     }
 
     #[Test]
@@ -103,7 +161,7 @@ final class DebiObjectTest extends TestCase
         $o->refreshFrom(['id' => 'x', 'fresh' => 'new']);
 
         $this->assertSame('new', $o->fresh);
-        $this->assertNull($o->stale);
+        $this->assertNull($o['stale']);
     }
 
     #[Test]
@@ -114,5 +172,33 @@ final class DebiObjectTest extends TestCase
 
         $this->assertFalse(isset($o->email));
         $this->assertArrayNotHasKey('email', $o->toArray());
+    }
+
+    /**
+     * Run $fn with E_USER_WARNING intercepted and return the messages raised.
+     *
+     * @return list<string>
+     */
+    private function captureUserWarnings(callable $fn): array
+    {
+        $warnings = [];
+        set_error_handler(static function (int $severity, string $message) use (&$warnings): bool {
+            $warnings[] = $message;
+            return true;
+        }, E_USER_WARNING);
+
+        try {
+            $fn();
+        } finally {
+            restore_error_handler();
+        }
+
+        return $warnings;
+    }
+
+    private function assertNoUserWarning(callable $fn): void
+    {
+        $warnings = $this->captureUserWarnings($fn);
+        $this->assertSame([], $warnings, 'Expected no E_USER_WARNING to be raised.');
     }
 }
