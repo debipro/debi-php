@@ -111,8 +111,13 @@ should read:
 - `Payment` gained `subscription`, `gateway` and `session`, which arrive as
   bare id strings rather than expanded objects — the opposite convention from
   `customer` on the same resource.
-- `Session` documented `url`, `status`, `metadata` and `expires_at`. The hosted
-  page is at `public_uri`, and a finished session is one with a `completed_at`.
+- `Session` documented `url`, `status` and `expires_at`, which the hosted page
+  does not return: it is at `public_uri`, and a finished session is one with a
+  `completed_at`. `metadata`, however, is real — it is accepted on create,
+  stored on the session, and copied onto the produced payment/subscription/
+  mandate — so it stays documented (`customer_metadata` likewise lands on the
+  created customer). `installments`/`max_installments` apply only when `kind` is
+  `payment`; there is no `installment` session kind.
 - `Gateway` documented `name` and `enabled`; the API sends `provider` and the
   inverted `disabled`.
 - `PaymentMethod` gained the `mercadopago` instrument type alongside `card`,
